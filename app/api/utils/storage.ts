@@ -7,6 +7,7 @@ interface Paste {
     max_views?: number;
     views: number;
     expires_at?: number;
+    expiresAt?: number;
 }
 
 // Global storage instance
