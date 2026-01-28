@@ -9,7 +9,7 @@ export function isPasteExpired(paste: Paste, now: number): boolean {
     if (paste.expires_at && paste.expires_at <= now) {
         return true;
     }
-    if (paste.maxViews && paste.views >= paste.maxViews) {
+    if (paste.max_views && paste.views >= paste.max_views) {
         return true;
     }
     return false;
