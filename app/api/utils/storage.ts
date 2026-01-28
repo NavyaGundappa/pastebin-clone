@@ -1,8 +1,4 @@
-import { storage } from '@/lib/storage';
-
-export { storage };
-
-// Simple in-memory storage for development
+// Shared in-memory storage accessible by all routes
 interface Paste {
     id: string;
     content: string;
@@ -13,38 +9,65 @@ interface Paste {
     expires_at?: number;
 }
 
+// Global storage instance
 class PasteStorage {
     private pastes = new Map<string, Paste>();
-    private cleanupInterval: NodeJS.Timeout;
+    private static instance: PasteStorage;
+    private cleanupInterval: NodeJS.Timeout | null = null;
 
-    constructor() {
-        // Clean up expired pastes every minute
+    private constructor() {
+        this.startCleanupInterval();
+    }
+
+    private startCleanupInterval() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+        }
+
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredPastes();
-        }, 60000);
+        }, 30000);
+    }
+
+    public static getInstance(): PasteStorage {
+        if (!PasteStorage.instance) {
+            PasteStorage.instance = new PasteStorage();
+        }
+        return PasteStorage.instance;
     }
 
     private cleanupExpiredPastes() {
         const now = Date.now();
+        let cleaned = 0;
         for (const [id, paste] of this.pastes.entries()) {
             if (paste.expires_at && paste.expires_at < now) {
                 this.pastes.delete(id);
+                cleaned++;
             }
+        }
+        if (cleaned > 0) {
+            console.log(`Cleaned up ${cleaned} expired pastes`);
         }
     }
 
     async create(paste: Paste): Promise<void> {
         this.pastes.set(paste.id, paste);
-        console.log('Created paste:', paste.id, 'Total pastes:', this.pastes.size);
+        console.log(`Created paste: ${paste.id}, Total: ${this.pastes.size}`);
     }
 
     async get(id: string): Promise<Paste | null> {
         const paste = this.pastes.get(id);
         if (!paste) {
-            console.log('Paste not found:', id);
+            console.log(`Paste not found: ${id}`);
             return null;
         }
-        console.log('Found paste:', id, 'Views:', paste.views, 'Max:', paste.max_views);
+
+        if (paste.expires_at && paste.expires_at < Date.now()) {
+            console.log(`Paste expired: ${id}`);
+            this.pastes.delete(id);
+            return null;
+        }
+
         return paste;
     }
 
@@ -52,24 +75,25 @@ class PasteStorage {
         const existing = this.pastes.get(id);
         if (existing) {
             this.pastes.set(id, { ...existing, ...updates });
-            console.log('Updated paste:', id, 'New views:', updates.views);
+            console.log(`Updated paste: ${id}, Views: ${updates.views}`);
         }
     }
 
     async delete(id: string): Promise<void> {
         this.pastes.delete(id);
-        console.log('Deleted paste:', id);
+        console.log(`Deleted paste: ${id}`);
     }
 
     async healthCheck(): Promise<boolean> {
-        return true; // Memory storage is always healthy
+        return true;
     }
 
-    // Clean up interval on destroy
-    destroy() {
-        clearInterval(this.cleanupInterval);
+    public destroy() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
     }
 }
 
-// Create a singleton instance
-export const storage = new PasteStorage();
+export const storage = PasteStorage.getInstance();
