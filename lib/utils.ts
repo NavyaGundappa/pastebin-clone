@@ -6,7 +6,7 @@ export function generateId(): string {
 }
 
 export function isPasteExpired(paste: Paste, now: number): boolean {
-    if (paste.expiresAt && paste.expiresAt <= now) {
+    if (paste.expires_at && paste.expires_at <= now) {
         return true;
     }
     if (paste.maxViews && paste.views >= paste.maxViews) {
